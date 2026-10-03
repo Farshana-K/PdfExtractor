@@ -10,7 +10,6 @@ import {
   ResetPasswordSchema
 } from '../schemas/auth/authSchema.js';
 
-
 import { IVerifyOtpUseCase } from '../../application/interfaces/auth/IVerifyOtpUseCase.js';
 import { ILoginUseCase } from '../../application/interfaces/auth/ILoginUseCase.js';
 import { IResendOtpUseCase } from '../../application/interfaces/auth/IResendOtpUseCase.js';
@@ -110,18 +109,18 @@ export class AuthController {
   };
 
   logout = async (_req: Request, res: Response) => {
-    const secure = process.env.NODE_ENV === 'production';
-
     res.clearCookie('accessToken', {
       httpOnly: true,
-      secure,
-      sameSite: secure ? 'none' : 'lax'
+      secure: true,
+      sameSite: 'none',
+      path: '/'
     });
 
     res.clearCookie('refreshToken', {
       httpOnly: true,
-      secure,
-      sameSite: secure ? 'none' : 'lax'
+      secure: true,
+      sameSite: 'none',
+      path: '/'
     });
 
     res.json({
@@ -134,20 +133,19 @@ export class AuthController {
     accessToken: string,
     refreshToken: string
   ) {
-    const secure = process.env.NODE_ENV === 'production';
-    const sameSite = secure ? 'none' : 'lax';
-
     res.cookie('accessToken', accessToken, {
       httpOnly: true,
-      secure,
-      sameSite,
+      secure: true,
+      sameSite: 'none',
+      path: '/',
       maxAge: 15 * 60 * 1000
     });
 
     res.cookie('refreshToken', refreshToken, {
       httpOnly: true,
-      secure,
-      sameSite,
+      secure: true,
+      sameSite: 'none',
+      path: '/',
       maxAge: 7 * 24 * 60 * 60 * 1000
     });
   }
