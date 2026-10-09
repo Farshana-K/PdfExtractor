@@ -1,3 +1,8 @@
+
+import { RESPONSE_MESSAGES } from '../../../shared/ResponseMessages.js';
+import { HttpStatusCode } from '../../../shared/HttpStatusCode.js';
+import { AppError } from '../../../shared/AppError.js';
+
 import { IUserRepository } from '../../../domain/interfaces/repositories/IUserRepository.js';
 import { IOtpRepository } from '../../../domain/interfaces/repositories/IOtpRepository.js';
 import { IEmailService } from '../../interfaces/services/IEmailService.js';
@@ -7,22 +12,25 @@ import { IRegisterUserUseCase } from '../../interfaces/auth/IRegisterUseCase.js'
 
 export class RegisterUserUseCase implements IRegisterUserUseCase {
   constructor(
-    private readonly users: IUserRepository,
-    private readonly otps: IOtpRepository,
-    private readonly email: IEmailService,
-    private readonly passwordHasher: IPasswordHasher
+    private readonly _userRepo: IUserRepository,
+    private readonly _otpRepo: IOtpRepository,
+    private readonly _emailService: IEmailService,
+    private readonly _passwordHasher: IPasswordHasher
   ) {}
 
   async execute(data: RegisterDTO): Promise<RegisterUserOutputDTO> {
-    const existing = await this.users.findByEmail(data.email);
+    const existing = await this._userRepo.findByEmail(data.email);
 
     if (existing) {
-      throw new Error('Email already registered');
+      throw new AppError(
+        RESPONSE_MESSAGES.EMAIL_REGISTERED,
+        HttpStatusCode.CONFLICT
+      );
     }
 
-    const password = await this.passwordHasher.hash(data.password);
+    const password = await this._passwordHasher.hash(data.password);
 
-    const user = await this.users.create({
+    const user = await this._userRepo.create({
       name: data.name,
       email: data.email.toLowerCase(),
       password,
@@ -31,9 +39,9 @@ export class RegisterUserUseCase implements IRegisterUserUseCase {
 
     const code = Math.floor(100000 + Math.random() * 900000).toString();
 
-    await this.otps.deleteForUser(user.id, 'EMAIL_VERIFICATION');
+    await this._otpRepo.deleteForUser(user.id, 'EMAIL_VERIFICATION');
 
-    await this.otps.create({
+    await this._otpRepo.create({
       userId: user.id,
       email: user.email,
       code,
@@ -41,7 +49,7 @@ export class RegisterUserUseCase implements IRegisterUserUseCase {
       expiresAt: new Date(Date.now() + 10 * 60 * 1000)
     });
 
-    await this.email.sendOtp(
+    await this._emailService.sendOtp(
       user.email,
       code,
       'email verification'

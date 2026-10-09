@@ -1,3 +1,4 @@
+import { RESPONSE_MESSAGES } from '../../shared/ResponseMessages.js';
 import mongoose from 'mongoose';
 import { GridFSBucket, ObjectId } from 'mongodb';
 import { Readable } from 'node:stream';
@@ -6,7 +7,7 @@ import { IPdfStorageService } from '../../application/interfaces/services/IPdfSt
 export class GridFsStorageService implements IPdfStorageService {
   private bucket(): GridFSBucket {
     const db = mongoose.connection.db;
-    if (!db) throw new Error('Database is not connected');
+    if (!db) throw new Error(RESPONSE_MESSAGES.DATABASE_NOT_CONNECTED);
     return new GridFSBucket(db, { bucketName: 'pdfFiles' });
   }
 
@@ -24,7 +25,7 @@ export class GridFsStorageService implements IPdfStorageService {
   async get(fileId: string) {
     const id = new ObjectId(fileId);
     const files = await this.bucket().find({ _id: id }).toArray();
-    if (!files.length) throw new Error('Stored PDF not found');
+    if (!files.length) throw new Error(RESPONSE_MESSAGES.STORED_PDF_NOT_FOUND);
     return {
       stream: this.bucket().openDownloadStream(id),
       contentType: files[0].metadata?.contentType || 'application/pdf',

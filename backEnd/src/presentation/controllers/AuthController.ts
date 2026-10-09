@@ -1,6 +1,11 @@
 
 import { Request, Response } from 'express';
 
+import { RESPONSE_MESSAGES } from '../../shared/ResponseMessages.js';
+import { HttpStatusCode } from '../../shared/HttpStatusCode.js';
+import { AppError } from '../../shared/AppError.js';
+import { successResponse } from '../../shared/ApiResponse.js';
+
 import {
   RegisterSchema,
   VerifyOtpSchema,
@@ -20,92 +25,114 @@ import { IRegisterUserUseCase } from '../../application/interfaces/auth/IRegiste
 
 export class AuthController {
   constructor(
-    private readonly register: IRegisterUserUseCase,
-    private readonly verifyOtp: IVerifyOtpUseCase,
-    private readonly login: ILoginUseCase,
-    private readonly resendOtp: IResendOtpUseCase,
-    private readonly forgotPassword: IForgotPasswordUseCase,
-    private readonly resetPassword: IResetPasswordUseCase,
-    private readonly refreshSession: IRefreshSessionUseCase
+    private readonly _registerUseCase: IRegisterUserUseCase,
+    private readonly _verifyOtpUseCase: IVerifyOtpUseCase,
+    private readonly _loginUseCase: ILoginUseCase,
+    private readonly _resendOtpUseCase: IResendOtpUseCase,
+    private readonly _forgotPasswordUseCase: IForgotPasswordUseCase,
+    private readonly _resetPasswordUseCase: IResetPasswordUseCase,
+    private readonly _refreshSessionUseCase: IRefreshSessionUseCase
   ) {}
 
   registerUser = async (req: Request, res: Response) => {
     const data = RegisterSchema.parse(req.body);
+    const user = await this._registerUseCase.execute(data);
 
-    const user = await this.register.execute(data);
-
-    res.status(201).json({
-      message: 'Registration successful. Verify your email with the OTP.',
-      user
-    });
+    res.status(HttpStatusCode.CREATED).json(
+      successResponse(
+        RESPONSE_MESSAGES.REGISTRATION_SUCCESS,
+        { user }
+      )
+    );
   };
 
   verifyOtpRequest = async (req: Request, res: Response) => {
     const data = VerifyOtpSchema.parse(req.body);
+    const result = await this._verifyOtpUseCase.execute(data);
 
-    const result = await this.verifyOtp.execute(data);
-
-    res.json(result);
+    res.json(
+      successResponse(
+        RESPONSE_MESSAGES.OTP_VERIFIED,
+        result
+      )
+    );
   };
 
   resend = async (req: Request, res: Response) => {
     const data = ResendOtpSchema.parse(req.body);
+    await this._resendOtpUseCase.execute(data);
 
-    await this.resendOtp.execute(data);
-
-    res.json({
-      message: 'If the request is valid, a new OTP has been sent.'
-    });
+    res.json(
+      successResponse(RESPONSE_MESSAGES.OTP_SENT)
+    );
   };
 
   loginUser = async (req: Request, res: Response) => {
     const data = LoginSchema.parse(req.body);
+    const result = await this._loginUseCase.execute(data);
 
-    const result = await this.login.execute(data);
+    this.setCookies(
+      res,
+      result.accessToken,
+      result.refreshToken
+    );
 
-    this.setCookies(res, result.accessToken, result.refreshToken);
-
-    res.json({
-      user: result.user
-    });
+    res.json(
+      successResponse(
+        RESPONSE_MESSAGES.LOGIN_SUCCESS,
+        { user: result.user }
+      )
+    );
   };
 
   forgotPasswordRequest = async (req: Request, res: Response) => {
     const data = ForgotPasswordSchema.parse(req.body);
+    await this._forgotPasswordUseCase.execute(data);
 
-    await this.forgotPassword.execute(data);
-
-    res.json({
-      message: 'If an account exists for this email, an OTP has been sent.'
-    });
+    res.json(
+      successResponse(
+        RESPONSE_MESSAGES.FORGOT_PASSWORD_OTP_SENT
+      )
+    );
   };
 
   resetPasswordRequest = async (req: Request, res: Response) => {
     const data = ResetPasswordSchema.parse(req.body);
+    await this._resetPasswordUseCase.execute(data);
 
-    await this.resetPassword.execute(data);
-
-    res.json({
-      message: 'Password reset successfully'
-    });
+    res.json(
+      successResponse(
+        RESPONSE_MESSAGES.PASSWORD_RESET_SUCCESS
+      )
+    );
   };
 
   refresh = async (req: Request, res: Response) => {
     const refreshToken = req.cookies.refreshToken;
 
     if (!refreshToken) {
-      throw new Error('Refresh token is required');
+      throw new AppError(
+        RESPONSE_MESSAGES.REFRESH_REQUIRED,
+        HttpStatusCode.UNAUTHORIZED
+      );
     }
 
-    const result = await this.refreshSession.execute({
+    const result = await this._refreshSessionUseCase.execute({
       refreshToken
     });
 
-    this.setCookies(res, result.accessToken, result.refreshToken);
+    this.setCookies(
+      res,
+      result.accessToken,
+      result.refreshToken
+    );
 
-    res.json({
-      user: result.user
-    });
+    res.json(
+      successResponse(
+        RESPONSE_MESSAGES.SESSION_REFRESHED,
+        { user: result.user }
+      )
+    );
   };
 
   logout = async (_req: Request, res: Response) => {
@@ -123,16 +150,16 @@ export class AuthController {
       path: '/'
     });
 
-    res.json({
-      message: 'Logged out'
-    });
+    res.json(
+      successResponse(RESPONSE_MESSAGES.LOGGED_OUT)
+    );
   };
 
   private setCookies(
     res: Response,
     accessToken: string,
     refreshToken: string
-  ) {
+  ): void {
     res.cookie('accessToken', accessToken, {
       httpOnly: true,
       secure: true,
@@ -150,4 +177,3 @@ export class AuthController {
     });
   }
 }
-

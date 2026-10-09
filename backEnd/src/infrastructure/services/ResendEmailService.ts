@@ -1,5 +1,10 @@
+
 import { Resend } from 'resend';
+
 import { IEmailService } from '../../application/interfaces/services/IEmailService.js';
+import { AppError } from '../../shared/AppError.js';
+import { HttpStatusCode } from '../../shared/HttpStatusCode.js';
+import { RESPONSE_MESSAGES } from '../../shared/ResponseMessages.js';
 
 export class ResendEmailService implements IEmailService {
   private readonly resend: Resend;
@@ -17,7 +22,11 @@ export class ResendEmailService implements IEmailService {
     this.fromEmail = fromEmail;
   }
 
-  async sendOtp(email: string, otp: string, purpose: string): Promise<void> {
+  async sendOtp(
+    email: string,
+    otp: string,
+    purpose: string
+  ): Promise<void> {
     const { error } = await this.resend.emails.send({
       from: this.fromEmail,
       to: [email],
@@ -35,7 +44,10 @@ export class ResendEmailService implements IEmailService {
     });
 
     if (error) {
-      throw new Error(`Unable to send email: ${error.message}`);
+      throw new AppError(
+        RESPONSE_MESSAGES.INTERNAL_ERROR,
+        HttpStatusCode.INTERNAL_SERVER_ERROR
+      );
     }
   }
 }

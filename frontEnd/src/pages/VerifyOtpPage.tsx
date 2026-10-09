@@ -1,6 +1,7 @@
+
 import { FormEvent, useState } from 'react';
 import { Link, useSearchParams, useNavigate } from 'react-router-dom';
-import { api } from '../lib/api';
+import { authService } from '../services/authService';
 import { otpSchema } from '../schemas/auth/authSchemas';
 import toast from 'react-hot-toast';
 
@@ -42,20 +43,21 @@ export function VerifyOtpPage() {
     setLoading(true);
 
     try {
-      const { data } = await api.post(
-        '/auth/verify-otp',
-        result.data,
-      );
+      const response = await authService.verifyOtp(result.data);
 
       if (purpose === 'PASSWORD_RESET') {
+        const resetToken = response.resetToken;
+
+        if (!resetToken) {
+          setError('Reset token was not returned by the server. Please try again.');
+          return;
+        }
+
         /*
          * Password reset flow:
          * OTP verified → store reset token → reset password page
          */
-        sessionStorage.setItem(
-          'pdf-reset-token',
-          data.resetToken,
-        );
+        sessionStorage.setItem('pdf-reset-token', resetToken);
 
         navigate('/reset-password');
       } else {
@@ -71,7 +73,9 @@ export function VerifyOtpPage() {
       }
     } catch (error: any) {
       setError(
-        error.response?.data?.message || 'Invalid OTP',
+        error.response?.data?.message ||
+          error.message ||
+          'Invalid OTP',
       );
     } finally {
       setLoading(false);
@@ -84,7 +88,7 @@ export function VerifyOtpPage() {
     setResending(true);
 
     try {
-      await api.post('/auth/resend-otp', {
+      await authService.resendOtp({
         email,
         purpose,
       });
@@ -93,6 +97,7 @@ export function VerifyOtpPage() {
     } catch (error: any) {
       setError(
         error.response?.data?.message ||
+          error.message ||
           'Could not resend OTP',
       );
     } finally {
@@ -151,6 +156,7 @@ export function VerifyOtpPage() {
           )}
 
           <button
+            type="submit"
             disabled={loading}
             className="w-full rounded-2xl bg-indigo-600 px-4 py-3.5 font-bold text-white hover:bg-indigo-500 disabled:opacity-50"
           >
@@ -159,7 +165,8 @@ export function VerifyOtpPage() {
         </form>
 
         <button
-          disabled={resending}
+          type="button"
+          disabled={resending || !email}
           onClick={resend}
           className="mt-5 text-sm font-bold text-indigo-600 disabled:opacity-50"
         >

@@ -1,13 +1,26 @@
+
+import { API_ROUTES } from '../../constants/apiRoutes';
 import { createAsyncThunk, createSlice, PayloadAction } from '@reduxjs/toolkit';
 import type { User } from '../../types';
 import type { RootState } from '../store';
-import { api } from '../../lib/api';
+import { apiService as api } from '../../services/apiService';
 
 interface AuthState {
   user: User | null;
   loading: boolean;
   initialized: boolean;
   error: string | null;
+}
+
+interface ApiResponse<T> {
+  success: boolean;
+  message: string;
+  data?: T;
+  errors?: unknown;
+}
+
+interface AuthResponse {
+  user: User;
 }
 
 const initialState: AuthState = {
@@ -25,13 +38,31 @@ export const refreshSession = createAsyncThunk<
   'auth/refreshSession',
   async (_, { rejectWithValue }) => {
     try {
-      const { data } = await api.post('/auth/refresh');
-
-      return data.user;
-    } catch (error: any) {
-      return rejectWithValue(
-        error.response?.data?.message || 'Session expired'
+      const { data } = await api.post<ApiResponse<AuthResponse>>(
+        API_ROUTES.AUTH.REFRESH
       );
+
+      if (!data.data?.user) {
+        return rejectWithValue(data.message || 'Unable to refresh session');
+      }
+
+      return data.data.user;
+    } catch (error: unknown) {
+      if (
+        typeof error === 'object' &&
+        error !== null &&
+        'response' in error
+      ) {
+        const response = error.response as {
+          data?: ApiResponse<unknown>;
+        };
+
+        return rejectWithValue(
+          response.data?.message || 'Session expired'
+        );
+      }
+
+      return rejectWithValue('Session expired');
     }
   }
 );
@@ -44,13 +75,32 @@ export const loginUser = createAsyncThunk<
   'auth/loginUser',
   async (credentials, { rejectWithValue }) => {
     try {
-      const { data } = await api.post('/auth/login', credentials);
-
-      return data.user;
-    } catch (error: any) {
-      return rejectWithValue(
-        error.response?.data?.message || 'Login failed'
+      const { data } = await api.post<ApiResponse<AuthResponse>>(
+        API_ROUTES.AUTH.LOGIN,
+        credentials
       );
+
+      if (!data.data?.user) {
+        return rejectWithValue(data.message || 'Login failed');
+      }
+
+      return data.data.user;
+    } catch (error: unknown) {
+      if (
+        typeof error === 'object' &&
+        error !== null &&
+        'response' in error
+      ) {
+        const response = error.response as {
+          data?: ApiResponse<unknown>;
+        };
+
+        return rejectWithValue(
+          response.data?.message || 'Login failed'
+        );
+      }
+
+      return rejectWithValue('Login failed');
     }
   }
 );
@@ -63,11 +113,23 @@ export const logoutUser = createAsyncThunk<
   'auth/logoutUser',
   async (_, { rejectWithValue }) => {
     try {
-      await api.post('/auth/logout');
-    } catch (error: any) {
-      return rejectWithValue(
-        error.response?.data?.message || 'Logout failed'
-      );
+      await api.post(API_ROUTES.AUTH.LOGOUT);
+    } catch (error: unknown) {
+      if (
+        typeof error === 'object' &&
+        error !== null &&
+        'response' in error
+      ) {
+        const response = error.response as {
+          data?: ApiResponse<unknown>;
+        };
+
+        return rejectWithValue(
+          response.data?.message || 'Logout failed'
+        );
+      }
+
+      return rejectWithValue('Logout failed');
     }
   }
 );
@@ -95,19 +157,16 @@ const authSlice = createSlice({
 
   extraReducers: (builder) => {
     builder
-
       // Refresh session
       .addCase(refreshSession.pending, (state) => {
         state.loading = true;
         state.error = null;
       })
-
       .addCase(refreshSession.fulfilled, (state, action) => {
         state.loading = false;
         state.initialized = true;
         state.user = action.payload;
       })
-
       .addCase(refreshSession.rejected, (state) => {
         state.loading = false;
         state.initialized = true;
@@ -119,13 +178,11 @@ const authSlice = createSlice({
         state.loading = true;
         state.error = null;
       })
-
       .addCase(loginUser.fulfilled, (state, action) => {
         state.loading = false;
         state.user = action.payload;
         state.error = null;
       })
-
       .addCase(loginUser.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload || 'Login failed';
@@ -136,12 +193,10 @@ const authSlice = createSlice({
         state.loading = true;
         state.error = null;
       })
-
       .addCase(logoutUser.fulfilled, (state) => {
         state.loading = false;
         state.user = null;
       })
-
       .addCase(logoutUser.rejected, (state, action) => {
         state.loading = false;
         state.user = null;

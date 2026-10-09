@@ -1,7 +1,7 @@
 
 import { FormEvent, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { api } from '../lib/api';
+import { authService } from '../services/authService';
 import { loginSchema } from '../schemas/auth/authSchemas';
 import { useAppDispatch } from '../redux/hooks';
 import { setUser } from '../redux/slices/authSlice';
@@ -32,12 +32,12 @@ export function LoginPage() {
     setLoading(true);
 
     try {
-      const { data } = await api.post('/auth/login', result.data);
+      const user = await authService.login(result.data);
 
-      dispatch(setUser(data.user));
+      dispatch(setUser(user));
       navigate('/');
     } catch (error: any) {
-      setError(error.response?.data?.message || 'Login failed');
+      setError(error.response?.data?.message || error.message || 'Login failed');
     } finally {
       setLoading(false);
     }
@@ -66,7 +66,7 @@ export function LoginPage() {
             <input
               className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 pr-20 outline-none transition focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/10"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={(event) => setPassword(event.target.value)}
               placeholder="Your password"
               type={showPassword ? 'text' : 'password'}
             />
@@ -93,6 +93,7 @@ export function LoginPage() {
         {error && <ErrorBox>{error}</ErrorBox>}
 
         <button
+          type="submit"
           disabled={loading}
           className="w-full rounded-2xl bg-indigo-600 px-4 py-3.5 font-bold text-white shadow-lg shadow-indigo-600/20 transition hover:bg-indigo-500 disabled:opacity-50"
         >
@@ -173,7 +174,7 @@ function Field({
       <input
         className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none transition focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/10"
         value={value}
-        onChange={(e) => onChange(e.target.value)}
+        onChange={(event) => onChange(event.target.value)}
         type={type}
         placeholder={placeholder}
       />
@@ -188,4 +189,3 @@ function ErrorBox({ children }: { children: React.ReactNode }) {
     </p>
   );
 }
-

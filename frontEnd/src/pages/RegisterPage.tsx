@@ -1,7 +1,7 @@
 
 import { FormEvent, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { api } from '../lib/api';
+import { authService } from '../services/authService';
 import { registerSchema } from '../schemas/auth/authSchemas';
 
 export function RegisterPage() {
@@ -35,7 +35,7 @@ export function RegisterPage() {
     setLoading(true);
 
     try {
-      await api.post('/auth/register', {
+      await authService.register({
         name: result.data.name,
         email: result.data.email,
         password: result.data.password,
@@ -47,7 +47,11 @@ export function RegisterPage() {
         )}&purpose=EMAIL_VERIFICATION`
       );
     } catch (error: any) {
-      setError(error.response?.data?.message || 'Registration failed');
+      setError(
+        error.response?.data?.message ||
+          error.message ||
+          'Registration failed'
+      );
     } finally {
       setLoading(false);
     }
@@ -115,6 +119,7 @@ export function RegisterPage() {
           )}
 
           <button
+            type="submit"
             disabled={loading}
             className="w-full rounded-2xl bg-indigo-600 px-4 py-3.5 font-bold text-white shadow-lg shadow-indigo-600/20 hover:bg-indigo-500 disabled:opacity-50"
           >
@@ -155,7 +160,7 @@ function Input({
       <input
         className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/10"
         value={value}
-        onChange={(e) => onChange(e.target.value)}
+        onChange={(event) => onChange(event.target.value)}
         placeholder={placeholder}
         type={type}
       />
@@ -188,7 +193,7 @@ function PasswordInput({
         <input
           className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 pr-20 outline-none focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/10"
           value={value}
-          onChange={(e) => onChange(e.target.value)}
+          onChange={(event) => onChange(event.target.value)}
           placeholder={placeholder}
           type={showPassword ? 'text' : 'password'}
         />
@@ -204,4 +209,3 @@ function PasswordInput({
     </div>
   );
 }
-

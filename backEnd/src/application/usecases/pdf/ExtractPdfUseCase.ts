@@ -1,4 +1,8 @@
 
+import { RESPONSE_MESSAGES } from '../../../shared/ResponseMessages.js';
+import { HttpStatusCode } from '../../../shared/HttpStatusCode.js';
+import { AppError } from '../../../shared/AppError.js';
+
 import { PDFDocument } from 'pdf-lib';
 
 import { IPdfRepository } from '../../../domain/interfaces/repositories/IPdfRepository.js';
@@ -11,20 +15,23 @@ import { IExtractPdfUseCase } from '../../interfaces/pdf/IExtractPdfUseCase.js';
 
 export class ExtractPdfUseCase implements IExtractPdfUseCase {
   constructor(
-    private readonly pdfs: IPdfRepository,
-    private readonly storage: IPdfStorageService
+    private readonly _pdfRepo: IPdfRepository,
+    private readonly _storageService: IPdfStorageService
   ) {}
 
   async execute(
     data: ExtractPdfInputDTO
   ): Promise<ExtractPdfOutputDTO> {
-    const source = await this.pdfs.findById(data.pdfId);
+    const source = await this._pdfRepo.findById(data.pdfId);
 
     if (!source || source.userId !== data.userId) {
-      throw new Error('PDF not found');
+      throw new AppError(
+        RESPONSE_MESSAGES.PDF_NOT_FOUND,
+        HttpStatusCode.NOT_FOUND
+      );
     }
 
-    const file = await this.storage.get(source.gridFsId);
+    const file = await this._storageService.get(source.gridFsId);
 
     const chunks: Buffer[] = [];
 
@@ -43,7 +50,10 @@ export class ExtractPdfUseCase implements IExtractPdfUseCase {
         (page) => page < 1 || page > original.getPageCount()
       )
     ) {
-      throw new Error('One or more selected pages are invalid');
+      throw new AppError(
+        RESPONSE_MESSAGES.INVALID_PAGES,
+        HttpStatusCode.BAD_REQUEST
+      );
     }
 
     const generated = await PDFDocument.create();
@@ -62,7 +72,7 @@ export class ExtractPdfUseCase implements IExtractPdfUseCase {
       ''
     )}-extracted-${Date.now()}.pdf`;
 
-    const generatedId = await this.storage.save(
+    const generatedId = await this._storageService.save(
       fileName,
       Buffer.from(bytes),
       'application/pdf'
@@ -76,4 +86,3 @@ export class ExtractPdfUseCase implements IExtractPdfUseCase {
     };
   }
 }
-

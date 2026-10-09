@@ -1,6 +1,11 @@
 
 import { Request, Response } from 'express';
 
+import { RESPONSE_MESSAGES } from '../../shared/ResponseMessages.js';
+import { HttpStatusCode } from '../../shared/HttpStatusCode.js';
+import { AppError } from '../../shared/AppError.js';
+import { successResponse } from '../../shared/ApiResponse.js';
+
 import { IUploadPdfUseCase } from '../../application/interfaces/pdf/IUploadPdfUseCase.js';
 import { IListUserPdfsUseCase } from '../../application/interfaces/pdf/IListUserPdfUseCase.js';
 import { IGetPdfUseCase } from '../../application/interfaces/pdf/IGetPdfUseCase.js';
@@ -12,24 +17,30 @@ import { ExtractPdfSchema } from '../schemas/pdf/pdfSchema.js';
 
 export class PdfController {
   constructor(
-    private readonly upload: IUploadPdfUseCase,
-    private readonly list: IListUserPdfsUseCase,
-    private readonly get: IGetPdfUseCase,
-    private readonly remove: IDeletePdfUseCase,
-    private readonly extract: IExtractPdfUseCase,
-    private readonly storage: IPdfStorageService
+    private readonly _uploadPdfUseCase: IUploadPdfUseCase,
+    private readonly _listPdfsUseCase: IListUserPdfsUseCase,
+    private readonly _getPdfUseCase: IGetPdfUseCase,
+    private readonly _deletePdfUseCase: IDeletePdfUseCase,
+    private readonly _extractPdfUseCase: IExtractPdfUseCase,
+    private readonly _storageService: IPdfStorageService
   ) {}
 
   uploadPdf = async (req: Request, res: Response) => {
     if (!req.user) {
-      throw new Error('Authentication required');
+      throw new AppError(
+        RESPONSE_MESSAGES.AUTH_REQUIRED,
+        HttpStatusCode.UNAUTHORIZED
+      );
     }
 
     if (!req.file) {
-      throw new Error('PDF file is required');
+      throw new AppError(
+        RESPONSE_MESSAGES.PDF_REQUIRED,
+        HttpStatusCode.BAD_REQUEST
+      );
     }
 
-    const pdf = await this.upload.execute({
+    const pdf = await this._uploadPdfUseCase.execute({
       userId: req.user.userId,
       file: {
         originalname: req.file.originalname,
@@ -38,19 +49,26 @@ export class PdfController {
       }
     });
 
-    res.status(201).json({ pdf });
+    res.status(HttpStatusCode.CREATED).json(
+      successResponse(RESPONSE_MESSAGES.SUCCESS, { pdf })
+    );
   };
 
   listPdfs = async (req: Request, res: Response) => {
     if (!req.user) {
-      throw new Error('Authentication required');
+      throw new AppError(
+        RESPONSE_MESSAGES.AUTH_REQUIRED,
+        HttpStatusCode.UNAUTHORIZED
+      );
     }
 
-    const pdfs = await this.list.execute({
+    const pdfs = await this._listPdfsUseCase.execute({
       userId: req.user.userId
     });
 
-    res.json({ pdfs });
+    res.json(
+      successResponse(RESPONSE_MESSAGES.SUCCESS, { pdfs })
+    );
   };
 
   viewPdf = async (
@@ -58,16 +76,18 @@ export class PdfController {
     res: Response
   ) => {
     if (!req.user) {
-      throw new Error('Authentication required');
+      throw new AppError(
+        RESPONSE_MESSAGES.AUTH_REQUIRED,
+        HttpStatusCode.UNAUTHORIZED
+      );
     }
 
-    const result = await this.get.execute({
+    const result = await this._getPdfUseCase.execute({
       userId: req.user.userId,
       pdfId: req.params.id
     });
 
     res.setHeader('Content-Type', result.contentType);
-
     res.setHeader(
       'Content-Disposition',
       `inline; filename="${result.fileName}"`
@@ -81,17 +101,20 @@ export class PdfController {
     res: Response
   ) => {
     if (!req.user) {
-      throw new Error('Authentication required');
+      throw new AppError(
+        RESPONSE_MESSAGES.AUTH_REQUIRED,
+        HttpStatusCode.UNAUTHORIZED
+      );
     }
 
-    await this.remove.execute({
+    await this._deletePdfUseCase.execute({
       userId: req.user.userId,
       pdfId: req.params.id
     });
 
-    res.json({
-      message: 'PDF deleted successfully'
-    });
+    res.json(
+      successResponse(RESPONSE_MESSAGES.PDF_DELETED)
+    );
   };
 
   extractPdf = async (
@@ -99,28 +122,32 @@ export class PdfController {
     res: Response
   ) => {
     if (!req.user) {
-      throw new Error('Authentication required');
+      throw new AppError(
+        RESPONSE_MESSAGES.AUTH_REQUIRED,
+        HttpStatusCode.UNAUTHORIZED
+      );
     }
 
     const data = ExtractPdfSchema.parse(req.body);
 
-    const result = await this.extract.execute({
+    const result = await this._extractPdfUseCase.execute({
       userId: req.user.userId,
       pdfId: req.params.id,
       pages: data.pages
     });
 
-    res.status(201).json(result);
+    res.status(HttpStatusCode.CREATED).json(
+      successResponse(RESPONSE_MESSAGES.SUCCESS, result)
+    );
   };
 
   downloadGenerated = async (
     req: Request<{ id: string }>,
     res: Response
   ) => {
-    const result = await this.storage.get(req.params.id);
+    const result = await this._storageService.get(req.params.id);
 
     res.setHeader('Content-Type', result.contentType);
-
     res.setHeader(
       'Content-Disposition',
       `attachment; filename="${result.fileName}"`
@@ -133,11 +160,11 @@ export class PdfController {
     req: Request<{ id: string }>,
     res: Response
   ) => {
-    await this.storage.delete(req.params.id);
+    await this._storageService.delete(req.params.id);
 
-    res.json({
-      message: 'Generated PDF discarded'
-    });
+    res.json(
+      successResponse(RESPONSE_MESSAGES.GENERATED_PDF_DISCARDED)
+    );
   };
 
   saveGenerated = async (
@@ -145,11 +172,13 @@ export class PdfController {
     res: Response
   ) => {
     if (!req.user) {
-      throw new Error('Authentication required');
+      throw new AppError(
+        RESPONSE_MESSAGES.AUTH_REQUIRED,
+        HttpStatusCode.UNAUTHORIZED
+      );
     }
 
-    const generated = await this.storage.get(req.params.id);
-
+    const generated = await this._storageService.get(req.params.id);
     const chunks: Buffer[] = [];
 
     for await (
@@ -158,7 +187,7 @@ export class PdfController {
       chunks.push(Buffer.from(chunk));
     }
 
-    const pdf = await this.upload.execute({
+    const pdf = await this._uploadPdfUseCase.execute({
       userId: req.user.userId,
       file: {
         originalname: generated.fileName,
@@ -167,12 +196,13 @@ export class PdfController {
       }
     });
 
-    await this.storage.delete(req.params.id);
+    await this._storageService.delete(req.params.id);
 
-    res.status(201).json({
-      pdf,
-      message: 'PDF saved to your library'
-    });
+    res.status(HttpStatusCode.CREATED).json(
+      successResponse(
+        RESPONSE_MESSAGES.PDF_SAVED,
+        { pdf }
+      )
+    );
   };
 }
-

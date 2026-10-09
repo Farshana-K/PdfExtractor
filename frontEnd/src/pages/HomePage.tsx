@@ -1,6 +1,7 @@
+
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { api } from '../lib/api';
+import { pdfService } from '../services/pdfService';
 import { selectUser } from '../redux/slices/authSlice';
 import { useAppSelector } from '../redux/hooks';
 import { uploadPdfSchema } from '../schemas/pdf/pdfSchemas';
@@ -21,49 +22,67 @@ export function HomePage() {
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
   // Custom Delete Modal State
-  const [deletingPdf, setDeletingPdf] = useState<{ id: string; name: string } | null>(null);
+  const [deletingPdf, setDeletingPdf] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  const addToast = (text: string, type: 'error' | 'success' = 'error') => {
+  const addToast = (
+    text: string,
+    type: 'error' | 'success' = 'error'
+  ) => {
     const toastId = Date.now();
+
     setToasts((prev) => [...prev, { id: toastId, text, type }]);
+
     setTimeout(() => {
-      setToasts((prev) => prev.filter((t) => t.id !== toastId));
+      setToasts((prev) => prev.filter((toast) => toast.id !== toastId));
     }, 4000);
   };
 
   async function load() {
     try {
-      const { data } = await api.get('/pdfs');
-      setPdfs(data.pdfs);
+      const pdfs = await pdfService.getPdfs();
+      setPdfs(pdfs);
     } catch (error: any) {
       if (error.response?.status !== 401) {
-        addToast(error.response?.data?.message || 'Could not load your PDFs');
+        addToast(
+          error.response?.data?.message || 'Could not load your PDFs'
+        );
       }
     }
   }
 
   useEffect(() => {
-    if (user) load();
+    if (user) {
+      load();
+    } else {
+      setPdfs([]);
+    }
   }, [user]);
 
   async function upload(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     event.target.value = '';
+
     if (!file) return;
 
     const result = uploadPdfSchema.safeParse({ file });
+
     if (!result.success) {
       addToast(result.error.issues[0]?.message || 'Invalid PDF file');
       return;
     }
 
     setUploading(true);
+
     const form = new FormData();
     form.append('file', file);
 
     try {
-      await api.post('/pdfs', form);
+      await pdfService.uploadPdf(form);
+
       addToast('PDF uploaded successfully!', 'success');
       await load();
     } catch (error: any) {
@@ -75,12 +94,15 @@ export function HomePage() {
 
   async function handleConfirmDelete() {
     if (!deletingPdf) return;
+
     setIsDeleting(true);
 
     try {
-      await api.delete(`/pdfs/${deletingPdf.id}`);
+      await pdfService.deletePdf(deletingPdf.id);
+
       addToast(`"${deletingPdf.name}" deleted successfully`, 'success');
       setDeletingPdf(null);
+
       await load();
     } catch (error: any) {
       addToast(error.response?.data?.message || 'Delete failed');
@@ -95,16 +117,22 @@ export function HomePage() {
       <section className="relative overflow-hidden rounded-[2.5rem] bg-slate-950 px-6 py-20 text-center text-white shadow-2xl sm:px-12 lg:py-28">
         <div className="absolute -right-24 -top-24 h-80 w-80 rounded-full bg-indigo-500/20 blur-3xl" />
         <div className="absolute -bottom-32 -left-20 h-96 w-96 rounded-full bg-cyan-500/15 blur-3xl" />
+
         <div className="relative mx-auto max-w-3xl">
           <span className="inline-flex items-center gap-2 rounded-full border border-indigo-500/30 bg-indigo-500/10 px-4 py-2 text-xs font-bold uppercase tracking-widest text-indigo-300 backdrop-blur-md">
             ✦ Smart PDF Workspace
           </span>
+
           <h1 className="mt-8 text-4xl font-black tracking-tight sm:text-6xl sm:leading-tight">
-            Extract & reorder <br className="hidden sm:inline" /> the exact pages you need.
+            Extract &amp; reorder <br className="hidden sm:inline" /> the
+            exact pages you need.
           </h1>
+
           <p className="mx-auto mt-6 max-w-2xl text-base leading-8 text-slate-300 sm:text-lg">
-            Upload documents once, organize pages with intuitive drag-and-drop, and instantly generate crisp new PDF files.
+            Upload documents once, organize pages with intuitive
+            drag-and-drop, and instantly generate crisp new PDF files.
           </p>
+
           <Link
             to="/login"
             className="mt-10 inline-flex items-center gap-2 rounded-2xl bg-white px-8 py-4 font-extrabold text-slate-950 shadow-2xl transition hover:bg-slate-100 active:scale-95"
@@ -119,7 +147,7 @@ export function HomePage() {
   return (
     <section className="relative pb-16">
       {/* Toast System */}
-      <div className="fixed top-5 right-5 z-[100] flex flex-col gap-2.5">
+      <div className="fixed right-5 top-5 z-[100] flex flex-col gap-2.5">
         {toasts.map((toast) => (
           <div
             key={toast.id}
@@ -141,14 +169,20 @@ export function HomePage() {
           <span className="inline-flex items-center gap-1.5 rounded-full bg-indigo-50 px-3 py-1 text-xs font-bold uppercase tracking-wider text-indigo-600">
             Workspace
           </span>
-          <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-900">My PDFs</h1>
-          <p className="mt-1 text-slate-500">Store originals and generated PDF documents you choose to keep.</p>
+
+          <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-900">
+            My PDFs
+          </h1>
+
+          <p className="mt-1 text-slate-500">
+            Store originals and generated PDF documents you choose to keep.
+          </p>
         </div>
 
         <label
           className={`inline-flex cursor-pointer items-center justify-center gap-2 rounded-2xl px-6 py-3.5 font-bold text-white shadow-lg transition active:scale-95 ${
             uploading
-              ? 'bg-indigo-400 cursor-not-allowed'
+              ? 'cursor-not-allowed bg-indigo-400'
               : 'bg-indigo-600 shadow-indigo-600/25 hover:bg-indigo-500'
           }`}
         >
@@ -163,6 +197,7 @@ export function HomePage() {
               <span>Upload PDF</span>
             </>
           )}
+
           <input
             type="file"
             accept="application/pdf"
@@ -186,14 +221,19 @@ export function HomePage() {
                   <div className="grid h-12 w-12 place-items-center rounded-2xl bg-rose-50 text-xs font-black text-rose-600">
                     PDF
                   </div>
+
                   <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600">
                     {pdf.pageCount} {pdf.pageCount === 1 ? 'page' : 'pages'}
                   </span>
                 </div>
 
-                <h3 className="mt-5 truncate text-base font-extrabold text-slate-900" title={pdf.fileName}>
+                <h3
+                  className="mt-5 truncate text-base font-extrabold text-slate-900"
+                  title={pdf.fileName}
+                >
                   {pdf.fileName}
                 </h3>
+
                 <p className="mt-1 text-xs font-medium text-slate-400">
                   {(pdf.fileSize / 1024 / 1024).toFixed(2)} MB
                 </p>
@@ -204,11 +244,18 @@ export function HomePage() {
                   className="flex-1 rounded-2xl bg-slate-900 px-4 py-3 text-center text-xs font-bold text-white transition hover:bg-indigo-600"
                   to={`/pdf/${pdf.id}`}
                 >
-                  Open & Edit
+                  Open &amp; Edit
                 </Link>
+
                 <button
+                  type="button"
                   className="rounded-2xl border border-rose-100 bg-rose-50/50 px-4 py-3 text-xs font-bold text-rose-600 transition hover:bg-rose-100 hover:text-rose-700"
-                  onClick={() => setDeletingPdf({ id: pdf.id, name: pdf.fileName })}
+                  onClick={() =>
+                    setDeletingPdf({
+                      id: pdf.id,
+                      name: pdf.fileName
+                    })
+                  }
                 >
                   Delete
                 </button>
@@ -222,13 +269,19 @@ export function HomePage() {
           <div className="mx-auto grid h-16 w-16 place-items-center rounded-2xl bg-indigo-100 text-2xl text-indigo-600">
             📄
           </div>
-          <h3 className="mt-5 text-lg font-black text-slate-900">No PDFs uploaded yet</h3>
+
+          <h3 className="mt-5 text-lg font-black text-slate-900">
+            No PDFs uploaded yet
+          </h3>
+
           <p className="mt-1 text-sm text-slate-500">
             Click anywhere in this area to upload your first PDF document.
           </p>
-          <span className="mt-6 inline-flex rounded-xl bg-white px-5 py-2.5 text-xs font-bold text-indigo-600 shadow-sm border border-slate-200">
+
+          <span className="mt-6 inline-flex rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-xs font-bold text-indigo-600 shadow-sm">
             Browse files
           </span>
+
           <input
             type="file"
             accept="application/pdf"
@@ -247,25 +300,36 @@ export function HomePage() {
         >
           <div
             className="w-full max-w-md rounded-3xl bg-white p-7 shadow-2xl transition-transform"
-            onClick={(e) => e.stopPropagation()}
+            onClick={(event) => event.stopPropagation()}
           >
             <div className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-rose-50 text-2xl text-rose-600">
               🗑
             </div>
-            <h2 className="mt-5 text-center text-xl font-black text-slate-900">Delete PDF File?</h2>
+
+            <h2 className="mt-5 text-center text-xl font-black text-slate-900">
+              Delete PDF File?
+            </h2>
+
             <p className="mt-2 text-center text-sm leading-relaxed text-slate-500">
-              Are you sure you want to delete <span className="font-bold text-slate-800">"{deletingPdf.name}"</span>? This action cannot be undone.
+              Are you sure you want to delete{' '}
+              <span className="font-bold text-slate-800">
+                "{deletingPdf.name}"
+              </span>
+              ? This action cannot be undone.
             </p>
 
             <div className="mt-8 space-y-3">
               <button
+                type="button"
                 disabled={isDeleting}
                 onClick={handleConfirmDelete}
                 className="w-full rounded-2xl bg-rose-600 px-4 py-3.5 text-sm font-bold text-white shadow-lg shadow-rose-600/20 transition hover:bg-rose-500 disabled:opacity-50"
               >
                 {isDeleting ? 'Deleting…' : 'Yes, Delete PDF'}
               </button>
+
               <button
+                type="button"
                 disabled={isDeleting}
                 onClick={() => setDeletingPdf(null)}
                 className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3.5 text-sm font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-50"

@@ -1,5 +1,6 @@
+import { API_ROUTES } from '../constants/apiRoutes';
 import { Link, useNavigate } from 'react-router-dom';
-import { api } from '../lib/api';
+import { apiService as api } from '../services/apiService';
 import { useAppDispatch, useAppSelector } from '../redux/hooks';
 import { selectUser, setUser } from '../redux/slices/authSlice';
 
@@ -9,7 +10,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const navigate = useNavigate();
 
   async function logout() {
-    try { await api.post('/auth/logout'); } finally {
+    try { await api.post(API_ROUTES.AUTH.LOGOUT); } finally {
       dispatch(setUser(null));
       navigate('/login');
     }

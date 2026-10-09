@@ -1,8 +1,9 @@
 import { User } from '../../entities/User.js';
+import { IBaseRepository } from './IBaseRepository.js';
 
-export interface IUserRepository {
-  create(data: Omit<User, 'id' | 'createdAt' | 'updatedAt'>): Promise<User>;
+export interface IUserRepository extends IBaseRepository<
+    User,
+    Omit<User, 'id' | 'createdAt' | 'updatedAt'>
+  > {
   findByEmail(email: string): Promise<User | null>;
-  findById(id: string): Promise<User | null>;
-  update(id: string, data: Partial<User>): Promise<User | null>;
 }

@@ -95,3 +95,22 @@ npm run dev
 ## Project Purpose
 
 This project was built to practice full-stack development, authentication, PDF processing, file storage, and Clean Architecture using TypeScript.
+
+## Refactoring conventions
+
+- Use descriptive dependency names with a leading underscore for private constructor-injected fields (for example, `_pdfRepo` and `_storageService`).
+- Backend HTTP status codes are centralized in `backEnd/src/shared/HttpStatusCode.ts`.
+- Shared success/error messages are centralized in `backEnd/src/shared/ResponseMessages.ts`.
+- JSON controller responses include a `success` flag; errors use the common `{ success: false, message }` shape through the error middleware.
+- `BaseRepository` contains shared Mongoose persistence operations and the concrete repositories extend it.
+- Frontend HTTP transport is wrapped by `frontEnd/src/services/apiService.ts`; pages, components, and Redux use the service layer.
+- Frontend endpoint paths are centralized in `frontEnd/src/constants/apiRoutes.ts`.
+
+## Setup
+
+1. Install dependencies with `npm install` inside both `backEnd` and `frontEnd`.
+2. Copy `backEnd/.env.example` to `backEnd/.env` and configure the MongoDB URI, JWT secrets, Resend configuration, and client URL.
+3. Copy `frontEnd/.env.example` to `frontEnd/.env` and set `VITE_API_URL` to the backend API base URL.
+4. Run `npm run dev` in each project directory. Run `npm run build` to type-check/build.
+
+Do not commit `.env` files or dependency folders.

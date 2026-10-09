@@ -1,28 +1,47 @@
+
+import { BaseRepository } from './BaseRepository.js';
 import { IOtpRepository } from '../../domain/interfaces/repositories/IOtpRepository.js';
 import { Otp } from '../../domain/entities/Otp.js';
 import { OtpModel } from '../database/models/OtpModel.js';
 
-export class OtpRepository implements IOtpRepository {
-  async create(data: Omit<Otp, 'id' | 'createdAt'>): Promise<Otp> {
-    const doc = await OtpModel.create(data);
-    return this.map(doc);
+type CreateOtp = Omit<Otp, 'id' | 'createdAt'>;
+
+export class OtpRepository
+  extends BaseRepository<Otp, CreateOtp>
+  implements IOtpRepository
+{
+  constructor() {
+    super(OtpModel);
   }
-  async findLatest(userId: string, purpose: Otp['purpose']): Promise<Otp | null> {
-    const doc = await OtpModel.findOne({ userId, purpose }).sort({ createdAt: -1 }).exec();
-    return doc ? this.map(doc) : null;
+
+  async findLatest(
+    userId: string,
+    purpose: Otp['purpose']
+  ): Promise<Otp | null> {
+    const document = await this._model
+      .findOne({ userId, purpose })
+      .sort({ createdAt: -1 })
+      .exec();
+
+    return document ? this.map(document) : null;
   }
-  async deleteForUser(userId: string, purpose: Otp['purpose']): Promise<void> {
-    await OtpModel.deleteMany({ userId, purpose }).exec();
+
+  async deleteForUser(
+    userId: string,
+    purpose: Otp['purpose']
+  ): Promise<void> {
+    await this._model.deleteMany({ userId, purpose }).exec();
   }
-  private map(doc: any): Otp {
+
+  protected map(document: any): Otp {
     return {
-      id: doc._id.toString(),
-      userId: doc.userId.toString(),
-      email: doc.email,
-      code: doc.code,
-      purpose: doc.purpose,
-      expiresAt: doc.expiresAt,
-      createdAt: doc.createdAt
+      id: document._id.toString(),
+      userId: document.userId.toString(),
+      email: document.email,
+      code: document.code,
+      purpose: document.purpose,
+      expiresAt: document.expiresAt,
+      createdAt: document.createdAt,
     };
   }
 }

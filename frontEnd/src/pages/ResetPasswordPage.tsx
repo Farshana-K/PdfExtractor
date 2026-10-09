@@ -2,7 +2,7 @@
 import { FormEvent, useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { api } from '../lib/api';
+import { authService } from '../services/authService';
 import { resetPasswordSchema } from '../schemas/auth/authSchemas';
 
 export function ResetPasswordPage() {
@@ -49,7 +49,7 @@ export function ResetPasswordPage() {
     setLoading(true);
 
     try {
-      await api.post('/auth/reset-password', {
+      await authService.resetPassword({
         resetToken,
         password: result.data.password,
       });
@@ -64,6 +64,7 @@ export function ResetPasswordPage() {
     } catch (error: any) {
       setError(
         error.response?.data?.message ||
+          error.message ||
           'Could not reset password'
       );
     } finally {
@@ -117,6 +118,7 @@ export function ResetPasswordPage() {
           )}
 
           <button
+            type="submit"
             disabled={loading}
             className="w-full rounded-2xl bg-indigo-600 px-4 py-3.5 font-bold text-white hover:bg-indigo-500 disabled:opacity-50"
           >
@@ -159,7 +161,7 @@ function PasswordField({
           className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 pr-20 outline-none focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/10"
           type={showPassword ? 'text' : 'password'}
           value={value}
-          onChange={(e) => onChange(e.target.value)}
+          onChange={(event) => onChange(event.target.value)}
           placeholder="At least 8 characters"
         />
 
@@ -174,4 +176,3 @@ function PasswordField({
     </div>
   );
 }
-

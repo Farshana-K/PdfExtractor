@@ -1,8 +1,14 @@
 import { Pdf } from '../../entities/Pdf.js';
+import { IBaseRepository } from './IBaseRepository.js';
 
-export interface IPdfRepository {
-  create(data: Omit<Pdf, 'id' | 'createdAt' | 'updatedAt'>): Promise<Pdf>;
-  findById(id: string): Promise<Pdf | null>;
+export interface IPdfRepository extends Omit<
+    IBaseRepository<
+      Pdf,
+      Omit<Pdf, 'id' | 'createdAt' | 'updatedAt'>
+    >,
+    'delete'
+  > {
   findByUserId(userId: string): Promise<Pdf[]>;
+
   delete(id: string, userId: string): Promise<boolean>;
 }
