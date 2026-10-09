@@ -58,7 +58,7 @@ This keeps business logic independent from frameworks and infrastructure impleme
 ### Clone the repository
 
 ```bash
-git clone <your-repository-url>
+git clone <repository-url>
 cd <project-folder>
 ```
 
